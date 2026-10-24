@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: url-shortener-demo
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/links/summary
+    envVars:
+      # Set these in the Render dashboard (they are never stored in the repo)
+      - key: DB_URL
+        sync: false
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: SHORT_LINK_BASEURL
+        sync: false
