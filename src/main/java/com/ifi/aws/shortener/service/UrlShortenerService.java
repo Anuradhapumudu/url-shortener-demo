@@ -89,7 +89,8 @@ public class UrlShortenerService {
 		if (host.isEmpty()) {
 			throw new IllegalArgumentException("Not a valid URL");
 		}
-		if (host.equals(URI.create(properties.baseUrl()).getHost().toLowerCase(Locale.ROOT))) {
+		String ownHost = URI.create(properties.baseUrl()).getHost();
+		if (ownHost != null && host.equals(ownHost.toLowerCase(Locale.ROOT))) {
 			throw new IllegalArgumentException("That's already a short link");
 		}
 
