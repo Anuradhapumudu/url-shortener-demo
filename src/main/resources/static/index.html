@@ -1,0 +1,556 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Workroo Links</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap">
+<style>
+	/* Layout: one centred column. Composer up top, the new short link as a "ticket", SMS comparison, then the live link list. */
+	:root {
+		--bg: #f3f5fa;
+		--surface: #ffffff;
+		--sunken: #eceff6;
+		--ink: #131828;
+		--muted: #5e677d;
+		--line: #dde2ec;
+		--accent: #3a4ddb;
+		--accent-ink: #ffffff;
+		--accent-soft: #e7eaff;
+		--good: #0e7a51;
+		--good-soft: #e1f5ec;
+		--bad: #be3420;
+		--bad-soft: #fcebe7;
+		--bubble: #e6e9f1;
+
+		--font-display: "Bricolage Grotesque", "Instrument Sans", system-ui, sans-serif;
+		--font-body: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+		--font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+		--radius: 12px;
+		--shadow: 0 1px 2px rgb(19 24 40 / 0.05), 0 8px 24px -12px rgb(19 24 40 / 0.12);
+		color-scheme: light;
+	}
+	@media (prefers-color-scheme: dark) {
+		:root:not([data-theme="light"]) {
+			--bg: #0c0f17; --surface: #141925; --sunken: #10141e; --ink: #e7eaf3; --muted: #8f98ae;
+			--line: #242b3b; --accent: #8090ff; --accent-ink: #0c0f17; --accent-soft: #1b2241;
+			--good: #52d39d; --good-soft: #0f281e; --bad: #ff8b78; --bad-soft: #2c1511; --bubble: #1e2433;
+			--shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px -12px rgb(0 0 0 / 0.5);
+			color-scheme: dark;
+		}
+	}
+	:root[data-theme="dark"] {
+		--bg: #0c0f17; --surface: #141925; --sunken: #10141e; --ink: #e7eaf3; --muted: #8f98ae;
+		--line: #242b3b; --accent: #8090ff; --accent-ink: #0c0f17; --accent-soft: #1b2241;
+		--good: #52d39d; --good-soft: #0f281e; --bad: #ff8b78; --bad-soft: #2c1511; --bubble: #1e2433;
+		--shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px -12px rgb(0 0 0 / 0.5);
+		color-scheme: dark;
+	}
+
+	*, *::before, *::after { box-sizing: border-box; }
+	[hidden] { display: none !important; }
+	html { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+	body {
+		margin: 0;
+		background: var(--bg);
+		color: var(--ink);
+		font: 15px/1.55 var(--font-body);
+		-webkit-font-smoothing: antialiased;
+	}
+	.wrap {
+		max-width: 860px;
+		margin: 0 auto;
+		padding-block: 40px 64px;
+		padding-left: max(16px, env(safe-area-inset-left, 0px));
+		padding-right: max(16px, env(safe-area-inset-right, 0px));
+		display: grid;
+		gap: 28px;
+	}
+	a { color: var(--accent); }
+	button, input { font: inherit; color: inherit; }
+	:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+	/* Header */
+	header { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+	.brand h1 {
+		font-family: var(--font-display);
+		font-size: clamp(28px, 5vw, 38px);
+		line-height: 1.05;
+		letter-spacing: -0.02em;
+		margin: 0;
+		text-wrap: balance;
+	}
+	.brand p { margin: 6px 0 0; color: var(--muted); max-width: 52ch; }
+	.domain {
+		display: inline-flex; align-items: center; gap: 8px;
+		font: 500 13px var(--font-mono);
+		color: var(--muted);
+		background: var(--surface);
+		border: 1px solid var(--line);
+		border-radius: 999px;
+		padding: 6px 12px;
+	}
+	.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--good); box-shadow: 0 0 0 3px var(--good-soft); }
+
+	/* Composer */
+	.composer {
+		background: var(--surface);
+		border: 1px solid var(--line);
+		border-radius: var(--radius);
+		box-shadow: var(--shadow);
+		padding: 20px;
+		display: grid;
+		gap: 14px;
+	}
+	.composer label { font-weight: 600; font-size: 14px; }
+	.field { display: flex; gap: 8px; flex-wrap: wrap; }
+	.field input {
+		flex: 1 1 300px; min-width: 0;
+		height: 50px;
+		padding: 0 14px;
+		border: 1px solid var(--line);
+		border-radius: 10px;
+		background: var(--sunken);
+		font-size: 15px;
+	}
+	.field input::placeholder { color: var(--muted); }
+	.field input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+	.btn {
+		height: 50px; padding: 0 22px;
+		border: 0; border-radius: 10px;
+		background: var(--accent); color: var(--accent-ink);
+		font-weight: 600; cursor: pointer;
+		transition: transform 0.08s, filter 0.15s;
+	}
+	.btn:hover { filter: brightness(1.08); }
+	.btn:active { transform: translateY(1px); }
+	.btn:disabled { opacity: 0.6; cursor: progress; }
+	.error {
+		margin: 0; padding: 10px 12px;
+		border-radius: 8px;
+		background: var(--bad-soft); color: var(--bad);
+		font-size: 14px;
+	}
+	.stats { display: flex; gap: 6px 20px; flex-wrap: wrap; color: var(--muted); font-size: 14px; }
+	.stats strong { color: var(--ink); font-variant-numeric: tabular-nums; font-weight: 600; }
+
+	/* New short link ticket */
+	.ticket {
+		display: grid; gap: 14px;
+		padding: 18px 20px;
+		border-radius: 10px;
+		background: var(--accent-soft);
+		border: 1px dashed color-mix(in srgb, var(--accent) 45%, transparent);
+	}
+	.ticket-top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+	.ticket a.short {
+		flex: 1 1 260px; min-width: 0;
+		font: 600 clamp(18px, 3.4vw, 24px) var(--font-mono);
+		color: var(--accent);
+		text-decoration: none;
+		overflow-wrap: anywhere;
+	}
+	.ticket a.short:hover { text-decoration: underline; }
+	.ghost {
+		height: 36px; padding: 0 14px;
+		border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+		border-radius: 8px;
+		background: var(--surface);
+		color: var(--accent);
+		font-weight: 600; font-size: 14px;
+		cursor: pointer; text-decoration: none;
+		display: inline-flex; align-items: center;
+	}
+	.ghost:hover { border-color: var(--accent); }
+	.saved { font-size: 13px; color: var(--muted); }
+	.saved strong { color: var(--ink); font-variant-numeric: tabular-nums; }
+
+	/* Section headings */
+	section > h2 {
+		font-family: var(--font-display);
+		font-size: 19px;
+		letter-spacing: -0.01em;
+		margin: 0 0 12px;
+		display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap;
+	}
+	section > h2 small { font: 400 13px var(--font-body); color: var(--muted); letter-spacing: 0; }
+
+	/* SMS comparison */
+	.sms { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+	.phone {
+		background: var(--surface);
+		border: 1px solid var(--line);
+		border-radius: var(--radius);
+		padding: 16px;
+		display: grid; gap: 12px; align-content: start;
+	}
+	.phone-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+	.bubble {
+		background: var(--bubble);
+		border-radius: 18px 18px 18px 6px;
+		padding: 10px 14px;
+		font-size: 14px;
+		overflow-wrap: anywhere;
+	}
+	.bubble a { color: var(--accent); }
+	.pill {
+		display: inline-flex; align-items: center; gap: 6px;
+		padding: 2px 10px; border-radius: 999px;
+		font-size: 12px; font-weight: 600; white-space: nowrap;
+	}
+	.pill.good { background: var(--good-soft); color: var(--good); }
+	.pill.bad { background: var(--bad-soft); color: var(--bad); }
+	.chars { font: 500 12px var(--font-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+
+	/* Link list */
+	.list {
+		background: var(--surface);
+		border: 1px solid var(--line);
+		border-radius: var(--radius);
+		overflow: hidden;
+	}
+	.row {
+		display: grid;
+		grid-template-columns: 36px minmax(0, 1fr) auto auto;
+		align-items: center;
+		gap: 14px;
+		padding: 14px 16px;
+		border-top: 1px solid var(--line);
+		transition: background 0.6s;
+	}
+	.row:first-child { border-top: 0; }
+	.row.flash { background: var(--good-soft); transition: none; }
+	.fav {
+		width: 36px; height: 36px; border-radius: 9px;
+		background: var(--sunken); border: 1px solid var(--line);
+		display: grid; place-items: center;
+		font: 600 14px var(--font-display); color: var(--muted);
+		overflow: hidden;
+	}
+	.fav img { width: 20px; height: 20px; }
+	.info { min-width: 0; display: grid; gap: 2px; }
+	.info a {
+		font: 600 14px var(--font-mono);
+		color: var(--ink); text-decoration: none;
+		overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+	}
+	.info a:hover { color: var(--accent); }
+	.dest { font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.clicks { text-align: right; min-width: 72px; }
+	.clicks b { display: block; font: 700 20px/1.1 var(--font-display); font-variant-numeric: tabular-nums; }
+	.clicks span { font-size: 12px; color: var(--muted); white-space: nowrap; }
+	.actions { display: flex; gap: 6px; }
+	.icon-btn {
+		height: 32px; min-width: 32px; padding: 0 8px;
+		border: 1px solid var(--line); border-radius: 8px;
+		background: transparent; color: var(--muted);
+		cursor: pointer; font-size: 13px; font-weight: 600;
+		display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+	}
+	.icon-btn:hover { color: var(--ink); border-color: var(--muted); }
+	.icon-btn svg { width: 16px; height: 16px; }
+	.icon-btn.danger:hover { color: var(--bad); border-color: var(--bad); }
+	.icon-btn.confirm { background: var(--bad); border-color: var(--bad); color: var(--surface); }
+	.empty { padding: 36px 20px; text-align: center; color: var(--muted); }
+	.empty strong { display: block; color: var(--ink); font-family: var(--font-display); font-size: 17px; margin-bottom: 4px; }
+
+	@media (max-width: 620px) {
+		.wrap { padding-block: 24px 48px; gap: 22px; }
+		.sms { grid-template-columns: minmax(0, 1fr); }
+		.row { grid-template-columns: 32px minmax(0, 1fr) auto; }
+		.fav { width: 32px; height: 32px; }
+		.actions { grid-column: 2 / -1; }
+	}
+	@media (prefers-reduced-motion: reduce) {
+		* { transition: none !important; }
+	}
+</style>
+</head>
+<body>
+<div class="wrap">
+	<header>
+		<div class="brand">
+			<h1>Workroo Links</h1>
+			<p>Paste any long link to get a short one on our own domain. Every click is counted in our MySQL database.</p>
+		</div>
+		<span class="domain"><span class="dot" aria-hidden="true"></span><span id="domainLabel">go.pumudu.indevs.in</span></span>
+	</header>
+
+	<form class="composer" id="form" novalidate>
+		<label for="longUrl">Long link</label>
+		<div class="field">
+			<input id="longUrl" type="url" autocomplete="off" spellcheck="false"
+				placeholder="https://www.google.com/maps/place/Colombo+Lotus+Tower/@6.9271,79.8585,17z">
+			<button class="btn" id="submit" type="submit">Shorten</button>
+		</div>
+		<p class="error" id="error" role="alert" hidden></p>
+
+		<div class="ticket" id="ticket" hidden>
+			<div class="ticket-top">
+				<a class="short" id="shortLink" target="_blank" rel="noopener"></a>
+				<button class="ghost" id="copy" type="button">Copy</button>
+				<a class="ghost" id="open" target="_blank" rel="noopener">Open</a>
+			</div>
+			<div class="saved" id="saved"></div>
+		</div>
+
+		<div class="stats" aria-live="polite">
+			<span><strong id="totalLinks">0</strong> links</span>
+			<span><strong id="totalClicks">0</strong> clicks</span>
+			<span><strong>$0</strong> a month, no Bitly subscription</span>
+		</div>
+	</form>
+
+	<section id="smsSection" hidden>
+		<h2>The same link in an SMS <small>160 characters fit in one SMS</small></h2>
+		<div class="sms">
+			<div class="phone">
+				<div class="phone-head"><span>Long link</span><span id="longPill"></span></div>
+				<div class="bubble" id="longBubble"></div>
+				<span class="chars" id="longChars"></span>
+			</div>
+			<div class="phone">
+				<div class="phone-head"><span>Short link</span><span id="shortPill"></span></div>
+				<div class="bubble" id="shortBubble"></div>
+				<span class="chars" id="shortChars"></span>
+			</div>
+		</div>
+	</section>
+
+	<section>
+		<h2>Your links <small>Click counts update every 3 seconds</small></h2>
+		<div class="list" id="list">
+			<div class="empty" id="empty">
+				<strong>No links yet</strong>
+				Paste a long link above and press Shorten. It will show up here with its click count.
+			</div>
+		</div>
+	</section>
+</div>
+
+<script>
+	const SMS_TEXT = 'Hi, your job is in progress. To view the progress real-time please click the following link: ';
+	const ICON_COPY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>';
+	const ICON_TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>';
+
+	const $ = (id) => document.getElementById(id);
+	let lastClicks = {};
+	let pendingDelete = null;
+	let pendingTimer = null;
+
+	// GSM-7 SMS: 160 characters fit in one message, longer ones split into 153-character parts
+	const smsParts = (length) => (length <= 160 ? 1 : Math.ceil(length / 153));
+
+	function ago(ts) {
+		if (!ts) return 'No clicks yet';
+		const s = Math.max(0, (Date.now() - new Date(ts).getTime()) / 1000);
+		if (s < 60) return 'Last click just now';
+		if (s < 3600) return 'Last click ' + Math.floor(s / 60) + ' min ago';
+		if (s < 86400) return 'Last click ' + Math.floor(s / 3600) + ' h ago';
+		return 'Last click ' + new Date(ts).toLocaleDateString();
+	}
+
+	function hostOf(url) {
+		try { return new URL(url).hostname.replace(/^www\./, ''); } catch (e) { return url; }
+	}
+
+	async function copyText(text, button) {
+		try {
+			await navigator.clipboard.writeText(text);
+		} catch (e) {
+			// clipboard API needs https or localhost
+			const ta = document.createElement('textarea');
+			ta.value = text;
+			document.body.appendChild(ta);
+			ta.select();
+			document.execCommand('copy');
+			ta.remove();
+		}
+		const original = button.innerHTML;
+		button.textContent = 'Copied';
+		setTimeout(() => (button.innerHTML = original), 1400);
+	}
+
+	function renderSms(kind, link, good) {
+		const a = document.createElement('a');
+		a.href = link;
+		a.target = '_blank';
+		a.rel = 'noopener';
+		a.textContent = link;
+		$(kind + 'Bubble').replaceChildren(SMS_TEXT, a);
+
+		const length = SMS_TEXT.length + link.length;
+		const parts = smsParts(length);
+		const pill = document.createElement('span');
+		pill.className = 'pill ' + (good ? 'good' : 'bad');
+		pill.textContent = parts === 1 ? '1 SMS' : parts + ' SMS parts';
+		$(kind + 'Pill').replaceChildren(pill);
+		$(kind + 'Chars').textContent = length + ' / 160 characters';
+	}
+
+	function favicon(host) {
+		const box = document.createElement('div');
+		box.className = 'fav';
+		const img = document.createElement('img');
+		img.alt = '';
+		img.src = 'https://www.google.com/s2/favicons?sz=64&domain=' + encodeURIComponent(host);
+		img.onerror = () => { box.textContent = host.charAt(0).toUpperCase(); };
+		box.appendChild(img);
+		return box;
+	}
+
+	function renderRow(l) {
+		const row = document.createElement('div');
+		row.className = 'row';
+		if (lastClicks[l.code] !== undefined && l.clickCount > lastClicks[l.code]) {
+			row.classList.add('flash');
+			requestAnimationFrame(() => setTimeout(() => row.classList.remove('flash'), 300));
+		}
+
+		const info = document.createElement('div');
+		info.className = 'info';
+		const a = document.createElement('a');
+		a.href = l.shortUrl;
+		a.target = '_blank';
+		a.rel = 'noopener';
+		a.textContent = l.shortUrl.replace(/^https?:\/\//, '');
+		const dest = document.createElement('span');
+		dest.className = 'dest';
+		dest.textContent = l.longUrl;
+		dest.title = l.longUrl;
+		info.append(a, dest);
+
+		const clicks = document.createElement('div');
+		clicks.className = 'clicks';
+		const b = document.createElement('b');
+		b.textContent = l.clickCount;
+		const when = document.createElement('span');
+		when.textContent = l.clickCount === 1 ? '1 click' : l.clickCount + ' clicks';
+		when.title = ago(l.lastClickedAt);
+		clicks.append(b, when);
+
+		const actions = document.createElement('div');
+		actions.className = 'actions';
+		const copy = document.createElement('button');
+		copy.type = 'button';
+		copy.className = 'icon-btn';
+		copy.title = 'Copy short link';
+		copy.setAttribute('aria-label', 'Copy ' + l.shortUrl);
+		copy.innerHTML = ICON_COPY;
+		copy.onclick = () => copyText(l.shortUrl, copy);
+
+		const del = document.createElement('button');
+		del.type = 'button';
+		const confirming = pendingDelete === l.code;
+		del.className = 'icon-btn danger' + (confirming ? ' confirm' : '');
+		del.title = confirming ? 'Click again to delete' : 'Delete link';
+		del.setAttribute('aria-label', confirming ? 'Confirm delete' : 'Delete ' + l.shortUrl);
+		if (confirming) del.textContent = 'Delete?';
+		else del.innerHTML = ICON_TRASH;
+		del.onclick = () => onDelete(l.code);
+		actions.append(copy, del);
+
+		row.append(favicon(hostOf(l.longUrl)), info, clicks, actions);
+		return row;
+	}
+
+	async function onDelete(code) {
+		clearTimeout(pendingTimer);
+		if (pendingDelete !== code) {
+			pendingDelete = code;
+			pendingTimer = setTimeout(() => { pendingDelete = null; load(); }, 3000);
+			load();
+			return;
+		}
+		pendingDelete = null;
+		await fetch('/api/links/' + encodeURIComponent(code), { method: 'DELETE' });
+		if ($('shortLink').dataset.code === code) {
+			$('ticket').hidden = true;
+			$('smsSection').hidden = true;
+		}
+		load();
+	}
+
+	async function load() {
+		try {
+			const [linksRes, summaryRes] = await Promise.all([fetch('/api/links'), fetch('/api/links/summary')]);
+			const links = await linksRes.json();
+			const summary = await summaryRes.json();
+			$('totalLinks').textContent = summary.totalLinks;
+			$('totalClicks').textContent = summary.totalClicks;
+
+			const list = $('list');
+			const empty = $('empty');
+			const rows = links.map(renderRow);
+			list.replaceChildren(...(rows.length ? rows : [empty]));
+			lastClicks = Object.fromEntries(links.map((l) => [l.code, l.clickCount]));
+		} catch (e) {
+			// server restarting; the next tick retries
+		}
+	}
+
+	$('form').addEventListener('submit', async (e) => {
+		e.preventDefault();
+		const longUrl = $('longUrl').value.trim();
+		$('error').hidden = true;
+		if (!longUrl) {
+			$('error').textContent = 'Paste a link first, for example https://www.example.com/page';
+			$('error').hidden = false;
+			$('longUrl').focus();
+			return;
+		}
+
+		$('submit').disabled = true;
+		try {
+			const res = await fetch('/api/links', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ longUrl })
+			});
+			const body = await res.json();
+			if (!res.ok) {
+				$('ticket').hidden = true;
+				$('smsSection').hidden = true;
+				$('error').textContent = body.error || 'That link could not be shortened. Check it starts with https:// and try again.';
+				$('error').hidden = false;
+				return;
+			}
+
+			const link = $('shortLink');
+			link.href = body.shortUrl;
+			link.textContent = body.shortUrl.replace(/^https?:\/\//, '');
+			link.dataset.code = body.code;
+			$('open').href = body.shortUrl;
+			$('copy').onclick = () => copyText(body.shortUrl, $('copy'));
+			$('saved').innerHTML = '';
+			const saved = document.createElement('span');
+			const before = document.createElement('strong');
+			before.textContent = longUrl.length;
+			const after = document.createElement('strong');
+			after.textContent = body.shortUrl.length;
+			saved.append(before, ' characters down to ', after, '.');
+			$('saved').append(saved);
+			$('ticket').hidden = false;
+
+			renderSms('long', longUrl, false);
+			renderSms('short', body.shortUrl, true);
+			$('smsSection').hidden = false;
+			$('longUrl').value = '';
+			load();
+		} catch (err) {
+			$('error').textContent = 'Could not reach the server. Check the demo is still running.';
+			$('error').hidden = false;
+		} finally {
+			$('submit').disabled = false;
+		}
+	});
+
+	if (location.host) $('domainLabel').textContent = location.host;
+	load();
+	setInterval(load, 3000);
+</script>
+</body>
+</html>
