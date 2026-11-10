@@ -52,6 +52,9 @@ public class SecurityConfig {
 					if (properties.demoUiEnabled()) {
 						auth.requestMatchers(HttpMethod.GET, "/", "/index.html", "/favicon.ico", "/qrcode.min.js", "/app.js").permitAll();
 						auth.requestMatchers(HttpMethod.HEAD, "/", "/index.html", "/favicon.ico", "/qrcode.min.js", "/app.js").permitAll();
+						auth.requestMatchers(HttpMethod.GET, "/api/links", "/api/links/*", "/api/links/summary").permitAll();
+						auth.requestMatchers(HttpMethod.POST, "/api/links").permitAll();
+						auth.requestMatchers(HttpMethod.DELETE, "/api/links/*").permitAll();
 					}
 					if (apiOpen) {
 						auth.requestMatchers("/api/**").permitAll();
