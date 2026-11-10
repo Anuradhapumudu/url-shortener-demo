@@ -41,7 +41,7 @@ public class SecurityConfig {
 			http.headers(h -> h.contentSecurityPolicy(c -> c.policyDirectives("default-src 'none'; frame-ancestors 'none'")));
 		} else {
 			http.headers(h -> h.contentSecurityPolicy(c -> c.policyDirectives(
-					"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self'; frame-ancestors 'none'")));
+					"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://www.google.com; connect-src 'self'; frame-ancestors 'none'")));
 		}
 		http
 				.addFilterBefore(new ApiKeyAuthFilter(properties.apiKey(), properties.tenantKeys()), UsernamePasswordAuthenticationFilter.class)
@@ -52,9 +52,6 @@ public class SecurityConfig {
 					if (properties.demoUiEnabled()) {
 						auth.requestMatchers(HttpMethod.GET, "/", "/index.html", "/favicon.ico", "/qrcode.min.js", "/app.js").permitAll();
 						auth.requestMatchers(HttpMethod.HEAD, "/", "/index.html", "/favicon.ico", "/qrcode.min.js", "/app.js").permitAll();
-						auth.requestMatchers(HttpMethod.GET, "/api/links", "/api/links/*", "/api/links/summary").permitAll();
-						auth.requestMatchers(HttpMethod.POST, "/api/links").permitAll();
-						auth.requestMatchers(HttpMethod.DELETE, "/api/links/*").permitAll();
 					}
 					if (apiOpen) {
 						auth.requestMatchers("/api/**").permitAll();

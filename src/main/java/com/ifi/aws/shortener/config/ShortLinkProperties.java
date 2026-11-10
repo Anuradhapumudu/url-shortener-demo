@@ -8,6 +8,7 @@ import java.util.Locale;
 import java.util.Map;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.ConstructorBinding;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
 @ConfigurationProperties(prefix = "short.link")
@@ -17,6 +18,7 @@ public record ShortLinkProperties(
 		List<String> allowedHosts,
 		String apiKey,
 		Map<String, String> tenantKeys,
+		String tenantId,
 		@DefaultValue("true") boolean demoUiEnabled,
 		@DefaultValue("30") int createRateLimitPerMinute,
 		@DefaultValue("30") int linkCacheTtlSeconds,
@@ -24,10 +26,19 @@ public record ShortLinkProperties(
 		@DefaultValue("20") int missThrottlePerMinute,
 		@DefaultValue("false") boolean productionMode) {
 
+	public ShortLinkProperties(String baseUrl, int codeLength, List<String> allowedHosts, String apiKey,
+			Map<String, String> tenantKeys, boolean demoUiEnabled, int createRateLimitPerMinute,
+			int linkCacheTtlSeconds, int defaultExpiresInDays, int missThrottlePerMinute, boolean productionMode) {
+		this(baseUrl, codeLength, allowedHosts, apiKey, tenantKeys, "", demoUiEnabled,
+				createRateLimitPerMinute, linkCacheTtlSeconds, defaultExpiresInDays, missThrottlePerMinute, productionMode);
+	}
+
+	@ConstructorBinding
 	public ShortLinkProperties {
 		baseUrl = normalizeBaseUrl(baseUrl);
 		apiKey = apiKey == null ? "" : apiKey.trim();
 		tenantKeys = tenantKeys == null ? Map.of() : Map.copyOf(tenantKeys);
+		tenantId = tenantId == null ? "" : tenantId.trim();
 		if (codeLength < 4 || codeLength > 16) {
 			throw new IllegalArgumentException("short.link.code-length must be between 4 and 16");
 		}

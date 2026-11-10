@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ifi.aws.shortener.config.ApiClientPrincipal;
+import com.ifi.aws.shortener.config.ShortLinkProperties;
 import com.ifi.aws.shortener.dto.ShortLinkResponse;
 import com.ifi.aws.shortener.dto.ShortenRequest;
 import com.ifi.aws.shortener.repository.ShortLink;
@@ -34,9 +35,11 @@ public class ShortLinkApiController {
 	public record UpdateDestinationRequest(@NotBlank @Size(max = 2048) String longUrl) {}
 
 	private final UrlShortenerService urlShortenerService;
+	private final ShortLinkProperties properties;
 
-	public ShortLinkApiController(UrlShortenerService urlShortenerService) {
+	public ShortLinkApiController(UrlShortenerService urlShortenerService, ShortLinkProperties properties) {
 		this.urlShortenerService = urlShortenerService;
+		this.properties = properties;
 	}
 
 	@PostMapping
@@ -119,7 +122,9 @@ public class ShortLinkApiController {
 				&& !headerTenantId.equals(bodyTenantId)) {
 			throw new IllegalArgumentException("Header X-Tenant-ID ('" + headerTenantId + "') and body tenantId ('" + bodyTenantId + "') do not match");
 		}
-		return bodyTenantId != null && !bodyTenantId.isBlank() ? bodyTenantId : (headerTenantId != null && !headerTenantId.isBlank() ? headerTenantId : null);
+		if (bodyTenantId != null && !bodyTenantId.isBlank()) return bodyTenantId;
+		if (headerTenantId != null && !headerTenantId.isBlank()) return headerTenantId;
+		return properties.tenantId().isBlank() ? null : properties.tenantId();
 	}
 
 	private ShortLinkResponse toResponse(ShortLink link) {

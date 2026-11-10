@@ -23,6 +23,11 @@ if [ -z "${SHORT_LINK_ALLOWED_HOSTS:-}" ]; then
 	exit 1
 fi
 
+if [ -z "${SHORT_LINK_TENANT_ID:-}" ]; then
+	echo "Error: SHORT_LINK_TENANT_ID must be set in .env to isolate this domain's links"
+	exit 1
+fi
+
 if lsof -iTCP:8090 -sTCP:LISTEN >/dev/null 2>&1; then
 	echo "Port 8090 is already in use - the demo is probably already running."
 	echo "Stop it first: pkill -f url-shortener-demo; pkill -f 'cloudflared tunnel run'"
@@ -32,7 +37,8 @@ fi
 echo "Building..."
 mvn -q -DskipTests package
 
-java -jar target/url-shortener-demo-0.0.1-SNAPSHOT.jar > app.log 2>&1 &
+SPRING_PROFILES_ACTIVE=prod SHORT_LINK_DEMO_UI_ENABLED=true \
+	java -jar target/url-shortener-demo-0.0.1-SNAPSHOT.jar > app.log 2>&1 &
 APP_PID=$!
 trap 'kill $APP_PID 2>/dev/null' EXIT
 
@@ -49,6 +55,6 @@ done
 echo ""
 echo "  Local:       http://localhost:8090"
 echo "  Public:      https://go.anuradha.indevs.in"
-echo "  Direct Link: https://go.anuradha.indevs.in/?key=${SHORT_LINK_API_KEY}"
+echo "  Open the public URL and enter the API key in the UI when prompted."
 echo ""
 cloudflared tunnel run --url http://localhost:8090 url-shortener-demo

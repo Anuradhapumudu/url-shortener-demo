@@ -3,7 +3,6 @@ package com.ifi.aws.shortener.service;
 import java.net.IDN;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -20,8 +19,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import com.ifi.aws.shortener.config.InvalidLinkException;
 import com.ifi.aws.shortener.config.ShortLinkProperties;
 import com.ifi.aws.shortener.repository.ShortLink;
@@ -49,7 +46,6 @@ public class UrlShortenerService {
 	private final ShortLinkRepository shortLinkRepository;
 	private final ShortLinkProperties properties;
 	private final MeterRegistry meters;
-	private final Cache<String, ShortLink> linkCache;
 	private final ExecutorService clickExecutor;
 
 	public UrlShortenerService(ShortLinkRepository shortLinkRepository, ShortLinkProperties properties,
@@ -57,10 +53,6 @@ public class UrlShortenerService {
 		this.shortLinkRepository = shortLinkRepository;
 		this.properties = properties;
 		this.meters = meters;
-		this.linkCache = Caffeine.newBuilder()
-				.maximumSize(10_000)
-				.expireAfterWrite(Duration.ofSeconds(Math.max(1, properties.linkCacheTtlSeconds())))
-				.build();
 		this.clickExecutor = Executors.newVirtualThreadPerTaskExecutor();
 	}
 
@@ -115,14 +107,13 @@ public class UrlShortenerService {
 	}
 
 	public Resolution resolve(String code, String userAgent, boolean countClick) {
-		ShortLink link = linkCache.getIfPresent(code);
+		Optional<ShortLink> stored = properties.tenantId().isBlank()
+				? shortLinkRepository.findByCode(code)
+				: shortLinkRepository.findByCode(code, properties.tenantId());
+		ShortLink link = stored.orElse(null);
 		if (link == null) {
-			link = shortLinkRepository.findByCode(code).orElse(null);
-			if (link == null) {
-				meters.counter("shortlink.redirects", "result", "not_found").increment();
-				return Resolution.notFound();
-			}
-			linkCache.put(code, link);
+			meters.counter("shortlink.redirects", "result", "not_found").increment();
+			return Resolution.notFound();
 		}
 		if (link.isDisabled() || link.isExpired(LocalDateTime.now(ZoneOffset.UTC))) {
 			meters.counter("shortlink.redirects", "result", "gone").increment();
@@ -172,7 +163,6 @@ public class UrlShortenerService {
 
 	public boolean delete(String code, String tenantId) {
 		boolean disabled = shortLinkRepository.disable(code, blankToNull(tenantId), LocalDateTime.now(ZoneOffset.UTC));
-		linkCache.invalidate(code);
 		return disabled;
 	}
 
@@ -182,7 +172,6 @@ public class UrlShortenerService {
 		if (!updated) {
 			return Optional.empty();
 		}
-		linkCache.invalidate(code);
 		return shortLinkRepository.findByCode(code, blankToNull(tenantId));
 	}
 

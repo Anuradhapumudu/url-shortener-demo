@@ -4,8 +4,6 @@
 	const $ = (id) => document.getElementById(id);
 	let links = [];
 	let lastClicks = {};
-	let pendingDelete = null;
-	let pendingTimer = null;
 	let toastTimer = null;
 
 	function toast(message) {
@@ -55,7 +53,21 @@
 		const box = document.createElement('div');
 		box.className = 'fav';
 		const clean = (host || '').replace(/^www\./, '');
-		box.textContent = (clean ? clean.charAt(0) : 'L').toUpperCase();
+		const fallback = document.createElement('span');
+		fallback.className = 'fav-fallback';
+		fallback.textContent = (clean ? clean.charAt(0) : 'L').toUpperCase();
+		box.append(fallback);
+		if (!clean) return box;
+
+		const image = document.createElement('img');
+		image.alt = '';
+		image.loading = 'lazy';
+		image.decoding = 'async';
+		image.referrerPolicy = 'no-referrer';
+		image.src = 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(clean) + '&sz=64';
+		image.onload = () => { fallback.hidden = true; };
+		image.onerror = () => { image.remove(); };
+		box.append(image);
 		return box;
 	}
 
@@ -103,12 +115,10 @@
 
 		const del = document.createElement('button');
 		del.type = 'button';
-		const confirming = pendingDelete === l.code;
-		del.className = 'icon-btn danger' + (confirming ? ' confirm' : '');
-		del.title = confirming ? 'Click again to delete' : 'Delete link';
-		del.setAttribute('aria-label', confirming ? 'Confirm delete' : 'Delete ' + l.shortUrl);
-		if (confirming) del.textContent = 'Delete?';
-		else del.innerHTML = ICON_TRASH;
+		del.className = 'icon-btn danger';
+		del.title = 'Delete link';
+		del.setAttribute('aria-label', 'Delete ' + l.shortUrl);
+		del.innerHTML = ICON_TRASH;
 		del.onclick = () => onDelete(l.code);
 		actions.append(copy, del);
 
@@ -269,16 +279,9 @@
 	}
 
 	async function onDelete(code) {
-		clearTimeout(pendingTimer);
-		if (pendingDelete !== code) {
-			pendingDelete = code;
-			pendingTimer = setTimeout(() => { pendingDelete = null; render(); }, 3000);
-			render();
-			return;
-		}
-		pendingDelete = null;
 		const res = await api('/api/links/' + encodeURIComponent(code), { method: 'DELETE' });
 		if (res.ok) toast('Link deleted');
+		else toast('Could not delete link');
 		if ($('shortLink').dataset.code === code) resetComposer();
 		load();
 	}
