@@ -468,28 +468,41 @@
 		lastClicks = Object.fromEntries(links.map((l) => [l.code, l.clickCount]));
 	}
 
-	// Adds the API key (asked once per browser session) when the server requires one
-	async function api(url, options = {}) {
+	function askForKey() {
+		const key = prompt('This server requires an API key:');
+		if (key) sessionStorage.setItem('apiKey', key.trim());
+		return Boolean(key);
+	}
+
+	async function api(url, options = {}, interactive = true) {
 		const send = () => fetch(url, { ...options, headers: { ...(options.headers || {}), 'X-API-Key': sessionStorage.getItem('apiKey') || '' } });
 		let res = await send();
-		if (res.status === 401) {
-			const key = prompt('This server requires an API key:');
-			if (key) {
-				sessionStorage.setItem('apiKey', key);
-				res = await send();
-			}
+		if (res.status === 401 && interactive && askForKey()) {
+			res = await send();
 		}
 		return res;
 	}
 
+	function renderKeyRequired() {
+		const button = document.createElement('button');
+		button.type = 'button';
+		button.textContent = 'Enter API key to see your links';
+		button.onclick = () => { if (askForKey()) load(); };
+		$('list').replaceChildren(button);
+	}
+
 	async function load() {
 		try {
-			const res = await api('/api/links');
+			const res = await api('/api/links', {}, false);
+			if (res.status === 401) {
+				renderKeyRequired();
+				return;
+			}
 			if (!res.ok) return;
 			links = await res.json();
 			render();
 		} catch (e) {
-			// server waking up or restarting; the next tick retries
+			// server restarting; the next tick retries
 		}
 	}
 
