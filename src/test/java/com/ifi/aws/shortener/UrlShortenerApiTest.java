@@ -69,7 +69,8 @@ class UrlShortenerApiTest {
 		String code = shorten(PORTAL_URL);
 
 		mockMvc.perform(delete("/api/links/" + code)).andExpect(status().isNoContent());
-		mockMvc.perform(get("/" + code)).andExpect(status().isNotFound());
+		mockMvc.perform(get("/" + code)).andExpect(status().isGone());
+		mockMvc.perform(get("/api/links/" + code)).andExpect(status().isNotFound());
 		mockMvc.perform(delete("/api/links/" + code)).andExpect(status().isNotFound());
 	}
 
@@ -84,7 +85,7 @@ class UrlShortenerApiTest {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"longUrl\":\"https://evil-phishing.example/login\"}"))
 				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.error").exists());
+				.andExpect(jsonPath("$.error").value(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("workroo"))));
 	}
 
 	@Test
@@ -105,10 +106,23 @@ class UrlShortenerApiTest {
 	}
 
 	@Test
+	void rejectsLookalikeAndCredentialUrls() throws Exception {
+		rejectsUrl("https://progress.workroo.click.evil.example/login");
+		rejectsUrl("https://evil.example@progress.workroo.click/login");
+	}
+
+	@Test
 	void rejectsEmptyUrl() throws Exception {
 		mockMvc.perform(post("/api/links")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"longUrl\":\"\"}"))
+				.andExpect(status().isBadRequest());
+	}
+
+	private void rejectsUrl(String longUrl) throws Exception {
+		mockMvc.perform(post("/api/links")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(java.util.Map.of("longUrl", longUrl))))
 				.andExpect(status().isBadRequest());
 	}
 

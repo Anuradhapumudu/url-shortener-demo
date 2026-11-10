@@ -5,9 +5,7 @@ import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -34,7 +32,7 @@ public class ShortLinkApiController {
 
 	@PostMapping
 	public ResponseEntity<ShortLinkResponse> shorten(@Valid @RequestBody ShortenRequest request) {
-		ShortLink link = urlShortenerService.shorten(request.longUrl());
+		ShortLink link = urlShortenerService.shorten(request.longUrl(), request.expiresInDays(), request.tenantId(), request.source());
 		return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(link));
 	}
 
@@ -63,16 +61,6 @@ public class ShortLinkApiController {
 				: ResponseEntity.notFound().build();
 	}
 
-	@ExceptionHandler(IllegalArgumentException.class)
-	public ResponseEntity<Map<String, String>> badUrl(IllegalArgumentException e) {
-		return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-	}
-
-	@ExceptionHandler(MethodArgumentNotValidException.class)
-	public ResponseEntity<Map<String, String>> invalidRequest(MethodArgumentNotValidException e) {
-		return ResponseEntity.badRequest().body(Map.of("error", "longUrl is required (max 2048 characters)"));
-	}
-
 	private ShortLinkResponse toResponse(ShortLink link) {
 		return new ShortLinkResponse(
 				link.code(),
@@ -80,6 +68,9 @@ public class ShortLinkApiController {
 				link.longUrl(),
 				link.clickCount(),
 				link.createdAt(),
-				link.lastClickedAt());
+				link.lastClickedAt(),
+				link.tenantId(),
+				link.source(),
+				link.expiresAt());
 	}
 }

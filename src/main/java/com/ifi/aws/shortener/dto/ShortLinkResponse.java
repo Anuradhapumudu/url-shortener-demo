@@ -6,7 +6,10 @@ public record ShortLinkResponse(
 		String code,
 		String shortUrl,
 		String longUrl,
-		int clickCount,
+		long clickCount,
 		LocalDateTime createdAt,
-		LocalDateTime lastClickedAt) {
+		LocalDateTime lastClickedAt,
+		String tenantId,
+		String source,
+		LocalDateTime expiresAt) {
 }

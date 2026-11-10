@@ -6,7 +6,19 @@ public record ShortLink(
 		Long id,
 		String code,
 		String longUrl,
-		int clickCount,
+		long clickCount,
 		LocalDateTime createdAt,
-		LocalDateTime lastClickedAt) {
+		LocalDateTime lastClickedAt,
+		String tenantId,
+		String source,
+		LocalDateTime expiresAt,
+		LocalDateTime disabledAt) {
+
+	public boolean isDisabled() {
+		return disabledAt != null;
+	}
+
+	public boolean isExpired(LocalDateTime now) {
+		return expiresAt != null && !expiresAt.isAfter(now);
+	}
 }
