@@ -47,7 +47,8 @@ until curl -s -o /dev/null http://localhost:8090/actuator/health; do
 done
 
 echo ""
-echo "  Local:  http://localhost:8090"
-echo "  Public: https://go.anuradha.indevs.in"
+echo "  Local:       http://localhost:8090"
+echo "  Public:      https://go.anuradha.indevs.in"
+echo "  Direct Link: https://go.anuradha.indevs.in/?key=${SHORT_LINK_API_KEY}"
 echo ""
 cloudflared tunnel run --url http://localhost:8090 url-shortener-demo
