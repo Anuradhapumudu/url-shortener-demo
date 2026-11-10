@@ -15,7 +15,7 @@ class ProductionSafetyValidatorTest {
 	private static final String KEY = "k".repeat(32);
 
 	private ShortLinkProperties props(String base, List<String> hosts, String key) {
-		return new ShortLinkProperties(base, 8, hosts, key, false, 30, 30, 0, 20);
+		return new ShortLinkProperties(base, 8, hosts, key, java.util.Map.of(), false, 30, 30, 0, 20, false);
 	}
 
 	@Test
@@ -44,7 +44,7 @@ class ProductionSafetyValidatorTest {
 	@Test
 	void refusesShortCodes() {
 		assertThatThrownBy(() -> ProductionSafetyValidator.validateForProduction(
-				new ShortLinkProperties("https://go.workroo.click", 7, List.of("workroo.click"), KEY, false, 30, 30, 0, 20)))
+				new ShortLinkProperties("https://go.workroo.click", 7, List.of("workroo.click"), KEY, java.util.Map.of(), false, 30, 30, 0, 20, false)))
 				.isInstanceOf(IllegalStateException.class).hasMessageContaining("code-length");
 	}
 

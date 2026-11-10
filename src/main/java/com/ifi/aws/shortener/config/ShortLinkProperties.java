@@ -5,32 +5,29 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
-/**
- * @param apiKey                   shared secret for /api/**; blank leaves the API open (rejected in prod)
- * @param createRateLimitPerMinute link creations allowed per client per minute (0 disables)
- * @param linkCacheTtlSeconds      how long a code lookup is cached in memory
- * @param defaultExpiresInDays     lifetime applied when a request gives none (0 means never)
- * @param missThrottlePerMinute    unknown-code lookups allowed per client per minute (0 disables)
- */
 @ConfigurationProperties(prefix = "short.link")
 public record ShortLinkProperties(
 		String baseUrl,
 		int codeLength,
 		List<String> allowedHosts,
 		String apiKey,
+		Map<String, String> tenantKeys,
 		@DefaultValue("true") boolean demoUiEnabled,
 		@DefaultValue("30") int createRateLimitPerMinute,
 		@DefaultValue("30") int linkCacheTtlSeconds,
 		@DefaultValue("0") int defaultExpiresInDays,
-		@DefaultValue("20") int missThrottlePerMinute) {
+		@DefaultValue("20") int missThrottlePerMinute,
+		@DefaultValue("false") boolean productionMode) {
 
 	public ShortLinkProperties {
 		baseUrl = normalizeBaseUrl(baseUrl);
 		apiKey = apiKey == null ? "" : apiKey.trim();
+		tenantKeys = tenantKeys == null ? Map.of() : Map.copyOf(tenantKeys);
 		if (codeLength < 4 || codeLength > 16) {
 			throw new IllegalArgumentException("short.link.code-length must be between 4 and 16");
 		}

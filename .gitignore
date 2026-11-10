@@ -8,3 +8,4 @@ app.log
 demo-run.log
 package-lock.json
 API.md
+*.zip

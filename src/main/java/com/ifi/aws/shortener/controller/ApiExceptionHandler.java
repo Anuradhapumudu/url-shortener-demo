@@ -21,6 +21,16 @@ import io.micrometer.core.instrument.MeterRegistry;
 @RestControllerAdvice
 public class ApiExceptionHandler {
 
+	@ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+	public ResponseEntity<Map<String, String>> accessDenied(org.springframework.security.access.AccessDeniedException e) {
+		return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
+	}
+
+	@ExceptionHandler(IllegalArgumentException.class)
+	public ResponseEntity<Map<String, String>> badRequest(IllegalArgumentException e) {
+		return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+	}
+
 	private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
 
 	private final MeterRegistry meters;

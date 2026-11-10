@@ -176,14 +176,14 @@ public class UrlShortenerService {
 		return disabled;
 	}
 
-	public ShortLink updateDestination(String code, String newLongUrl, String tenantId) {
+	public Optional<ShortLink> updateDestination(String code, String newLongUrl, String tenantId) {
 		validate(newLongUrl);
 		boolean updated = shortLinkRepository.updateDestination(code, newLongUrl.trim(), blankToNull(tenantId));
 		if (!updated) {
-			throw new InvalidLinkException("Link not found or access denied");
+			return Optional.empty();
 		}
 		linkCache.invalidate(code);
-		return shortLinkRepository.findByCode(code).orElseThrow();
+		return shortLinkRepository.findByCode(code, blankToNull(tenantId));
 	}
 
 	public long[] totals() {

@@ -2,6 +2,8 @@ package com.ifi.aws.shortener.config;
 
 import java.net.URI;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
 import org.springframework.stereotype.Component;
@@ -10,6 +12,8 @@ import jakarta.annotation.PostConstruct;
 
 @Component
 public class ProductionSafetyValidator {
+
+	private static final Logger log = LoggerFactory.getLogger(ProductionSafetyValidator.class);
 
 	static final int MIN_API_KEY_LENGTH = 32;
 	static final int MIN_CODE_LENGTH = 8;
@@ -24,8 +28,11 @@ public class ProductionSafetyValidator {
 
 	@PostConstruct
 	void validateOnStartup() {
-		if (environment.acceptsProfiles(Profiles.of("prod")) || isPublicDomain(properties.baseUrl())) {
+		boolean isProdProfile = environment.acceptsProfiles(Profiles.of("prod", "production"));
+		if (isProdProfile || properties.productionMode()) {
 			validateForProduction(properties);
+		} else if (isPublicDomain(properties.baseUrl())) {
+			log.warn("short.link.base-url ('{}') points to a non-local host, but active profile is not 'prod'. Ensure production profile is activated before live deployment.", properties.baseUrl());
 		}
 	}
 
@@ -42,17 +49,17 @@ public class ProductionSafetyValidator {
 	public static void validateForProduction(ShortLinkProperties p) {
 		if (p.allowedHosts().isEmpty()) {
 			throw new IllegalStateException(
-					"short.link.allowed-hosts (SHORT_LINK_ALLOWED_HOSTS) must not be empty in prod or with a public base URL: an empty list makes this an open redirector");
+					"short.link.allowed-hosts (SHORT_LINK_ALLOWED_HOSTS) must not be empty in production: an empty list makes this an open redirector");
 		}
 		if (p.apiKey().length() < MIN_API_KEY_LENGTH) {
 			throw new IllegalStateException(
-					"short.link.api-key (SHORT_LINK_API_KEY) must be set to at least " + MIN_API_KEY_LENGTH + " characters in prod or with a public base URL");
+					"short.link.api-key (SHORT_LINK_API_KEY) must be set to at least " + MIN_API_KEY_LENGTH + " characters in production");
 		}
 		if (p.codeLength() < MIN_CODE_LENGTH) {
-			throw new IllegalStateException("short.link.code-length must be at least " + MIN_CODE_LENGTH + " in prod");
+			throw new IllegalStateException("short.link.code-length must be at least " + MIN_CODE_LENGTH + " in production");
 		}
 		if (!"https".equalsIgnoreCase(URI.create(p.baseUrl()).getScheme())) {
-			throw new IllegalStateException("short.link.base-url must use https in prod or with a public base URL");
+			throw new IllegalStateException("short.link.base-url must use https in production");
 		}
 	}
 }

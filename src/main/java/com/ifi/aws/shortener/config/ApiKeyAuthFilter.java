@@ -3,7 +3,9 @@ package com.ifi.aws.shortener.config;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -15,26 +17,50 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-/** Authenticates service-to-service calls that carry the shared key in the X-API-Key header. */
 public class ApiKeyAuthFilter extends OncePerRequestFilter {
 
 	public static final String HEADER = "X-API-Key";
 
-	private final byte[] expected;
+	private final byte[] masterKey;
+	private final Map<String, byte[]> tenantKeyBytes;
 
-	public ApiKeyAuthFilter(String apiKey) {
-		this.expected = apiKey.getBytes(StandardCharsets.UTF_8);
+	public ApiKeyAuthFilter(String masterApiKey, Map<String, String> tenantKeys) {
+		this.masterKey = (masterApiKey != null ? masterApiKey.trim() : "").getBytes(StandardCharsets.UTF_8);
+		this.tenantKeyBytes = new HashMap<>();
+		if (tenantKeys != null) {
+			tenantKeys.forEach((tenantId, key) -> {
+				if (key != null && !key.isBlank() && tenantId != null && !tenantId.isBlank()) {
+					this.tenantKeyBytes.put(tenantId.trim(), key.trim().getBytes(StandardCharsets.UTF_8));
+				}
+			});
+		}
 	}
 
 	@Override
 	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
 			throws ServletException, IOException {
-		String supplied = request.getHeader(HEADER);
-		if (expected.length > 0 && supplied != null
-				&& MessageDigest.isEqual(expected, supplied.getBytes(StandardCharsets.UTF_8))) {
-			SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
-					"api-client", null, List.of(new SimpleGrantedAuthority("ROLE_API"))));
+		try {
+			String supplied = request.getHeader(HEADER);
+			if (supplied != null && !supplied.isBlank()) {
+				byte[] suppliedBytes = supplied.trim().getBytes(StandardCharsets.UTF_8);
+				if (masterKey.length > 0 && MessageDigest.isEqual(masterKey, suppliedBytes)) {
+					ApiClientPrincipal principal = new ApiClientPrincipal("master-admin", null, true);
+					SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
+							principal, null, List.of(new SimpleGrantedAuthority("ROLE_API"), new SimpleGrantedAuthority("ROLE_ADMIN"))));
+				} else {
+					for (Map.Entry<String, byte[]> entry : tenantKeyBytes.entrySet()) {
+						if (MessageDigest.isEqual(entry.getValue(), suppliedBytes)) {
+							ApiClientPrincipal principal = new ApiClientPrincipal("tenant-" + entry.getKey(), entry.getKey(), false);
+							SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
+									principal, null, List.of(new SimpleGrantedAuthority("ROLE_API"), new SimpleGrantedAuthority("ROLE_TENANT"))));
+							break;
+						}
+					}
+				}
+			}
+			chain.doFilter(request, response);
+		} finally {
+			SecurityContextHolder.clearContext();
 		}
-		chain.doFilter(request, response);
 	}
 }

@@ -210,17 +210,17 @@ class ResilienceAndLifecycleTest {
 	
 	@Test
 	void crossTenantStatsAndSummaryIsolation() throws Exception {
-		String codeA = shorten("{\"longUrl\":\"" + URL + "\",\"tenantId\":\"tenant-a\"}");
-		String codeB = shorten("{\"longUrl\":\"" + URL + "\",\"tenantId\":\"tenant-b\"}");
+		String codeA = shorten("{\"longUrl\":\"" + URL + "\",\"tenantId\":\"tenant-resilience-a\"}");
+		String codeB = shorten("{\"longUrl\":\"" + URL + "\",\"tenantId\":\"tenant-resilience-b\"}");
 
-		// Stats lookup scoped to tenant-a can access codeA, but not codeB
-		mockMvc.perform(get("/api/links/" + codeA).header("X-Tenant-ID", "tenant-a"))
+		// Stats lookup scoped to tenant-resilience-a can access codeA, but not codeB
+		mockMvc.perform(get("/api/links/" + codeA).header("X-Tenant-ID", "tenant-resilience-a"))
 				.andExpect(status().isOk());
-		mockMvc.perform(get("/api/links/" + codeB).header("X-Tenant-ID", "tenant-a"))
+		mockMvc.perform(get("/api/links/" + codeB).header("X-Tenant-ID", "tenant-resilience-a"))
 				.andExpect(status().isNotFound());
 
-		// Summary scoped to tenant-a counts only tenant-a links
-		mockMvc.perform(get("/api/links/summary").header("X-Tenant-ID", "tenant-a"))
+		// Summary scoped to tenant-resilience-a counts only tenant-resilience-a links
+		mockMvc.perform(get("/api/links/summary").header("X-Tenant-ID", "tenant-resilience-a"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.totalLinks").value(1));
 	}
