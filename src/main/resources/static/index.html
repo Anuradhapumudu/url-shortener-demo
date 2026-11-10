@@ -483,19 +483,28 @@
 		return res;
 	}
 
-	function renderKeyRequired() {
-		const button = document.createElement('button');
-		button.type = 'button';
-		button.textContent = 'Enter API key to see your links';
-		button.onclick = () => { if (askForKey()) load(); };
-		$('list').replaceChildren(button);
+	function renderKeyRequired(invalid = false) {
+		const box = document.createElement('div');
+		box.className = 'empty';
+		box.innerHTML = invalid
+			? '<strong>Invalid API Key</strong>The provided API key was not accepted.<br><br>'
+			: '<strong>API Key Required</strong>Enter your API key to view and manage existing links.<br><br>';
+		const btn = document.createElement('button');
+		btn.className = 'btn small';
+		btn.type = 'button';
+		btn.textContent = 'Enter API Key';
+		btn.onclick = () => { if (askForKey()) load(); };
+		box.appendChild(btn);
+		$('list').replaceChildren(box);
 	}
 
 	async function load() {
 		try {
+			const hadKey = Boolean(sessionStorage.getItem('apiKey'));
 			const res = await api('/api/links', {}, false);
 			if (res.status === 401) {
-				renderKeyRequired();
+				if (hadKey) sessionStorage.removeItem('apiKey');
+				renderKeyRequired(hadKey);
 				return;
 			}
 			if (!res.ok) return;
@@ -566,7 +575,11 @@
 			const body = await res.json().catch(() => ({}));
 			if (!res.ok) {
 				$('result').hidden = true;
-				showError(body.error || 'That link could not be shortened. Check it is a valid web address and try again.');
+				if (res.status === 401) {
+					showError('Valid API key required to create links.');
+				} else {
+					showError(body.error || 'That link could not be shortened. Check it is a valid web address and try again.');
+				}
 				return;
 			}
 
