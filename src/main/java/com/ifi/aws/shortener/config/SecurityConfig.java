@@ -51,6 +51,7 @@ public class SecurityConfig {
 					auth.requestMatchers("/actuator/health", "/actuator/health/**").permitAll();
 					if (properties.demoUiEnabled()) {
 						auth.requestMatchers(HttpMethod.GET, "/", "/index.html", "/favicon.ico", "/qrcode.min.js", "/app.js").permitAll();
+						auth.requestMatchers(HttpMethod.HEAD, "/", "/index.html", "/favicon.ico", "/qrcode.min.js", "/app.js").permitAll();
 					}
 					if (apiOpen) {
 						auth.requestMatchers("/api/**").permitAll();

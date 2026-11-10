@@ -134,14 +134,75 @@
 		lastClicks = Object.fromEntries(links.map((l) => [l.code, l.clickCount]));
 	}
 
+	function getKey() {
+		try {
+			const urlParams = new URLSearchParams(window.location.search);
+			const paramKey = urlParams.get('key');
+			if (paramKey && paramKey.trim()) {
+				setKey(paramKey.trim());
+				urlParams.delete('key');
+				const cleanSearch = urlParams.toString();
+				const newUrl = window.location.pathname + (cleanSearch ? '?' + cleanSearch : '') + window.location.hash;
+				window.history.replaceState({}, '', newUrl);
+				return paramKey.trim();
+			}
+		} catch (e) {}
+		try {
+			return localStorage.getItem('apiKey') || sessionStorage.getItem('apiKey') || '';
+		} catch (e) {
+			return '';
+		}
+	}
+
+	function setKey(key) {
+		try {
+			if (key && key.trim()) {
+				localStorage.setItem('apiKey', key.trim());
+				sessionStorage.setItem('apiKey', key.trim());
+			} else {
+				localStorage.removeItem('apiKey');
+				sessionStorage.removeItem('apiKey');
+			}
+		} catch (e) {}
+		updateKeyBadge();
+	}
+
+	function updateKeyBadge() {
+		const badge = $('keyBadge');
+		if (!badge) return;
+		const key = getKey();
+		if (key) {
+			badge.className = 'key-pill active';
+			badge.textContent = '✓ Key Active';
+			badge.title = 'API key active. Click to change or clear.';
+		} else {
+			badge.className = 'key-pill';
+			badge.textContent = '🔑 Enter API Key';
+			badge.title = 'Click to configure API key';
+		}
+	}
+
 	function askForKey() {
-		const key = prompt('This server requires an API key:');
-		if (key) sessionStorage.setItem('apiKey', key.trim());
-		return Boolean(key);
+		const current = getKey();
+		const promptMsg = current
+			? 'Current API key: ' + current.substring(0, 8) + '...\nEnter new API key (or leave empty to clear):'
+			: 'Enter API key (from .env SHORT_LINK_API_KEY):';
+		const key = prompt(promptMsg, current || '');
+		if (key !== null) {
+			setKey(key.trim());
+			return Boolean(key.trim());
+		}
+		return false;
 	}
 
 	async function api(url, options = {}, interactive = true) {
-		const send = () => fetch(url, { ...options, headers: { ...(options.headers || {}), 'X-API-Key': sessionStorage.getItem('apiKey') || '' } });
+		const send = () => fetch(url, {
+			...options,
+			headers: {
+				...(options.headers || {}),
+				'X-API-Key': getKey()
+			}
+		});
 		let res = await send();
 		if (res.status === 401 && interactive && askForKey()) {
 			res = await send();
@@ -150,32 +211,58 @@
 	}
 
 	function renderKeyRequired(invalid = false) {
+		$('count').textContent = '';
 		const box = document.createElement('div');
 		box.className = 'empty';
-		box.innerHTML = invalid
-			? '<strong>Invalid API Key</strong>The provided API key was not accepted.<br><br>'
-			: '<strong>API Key Required</strong>Enter your API key to view and manage existing links.<br><br>';
+		const title = document.createElement('strong');
+		title.textContent = invalid ? 'Invalid API Key' : 'API Key Required';
+		const desc = document.createElement('p');
+		desc.style.cssText = 'margin: 6px 0 16px; font-size: 13px; color: var(--muted);';
+		desc.textContent = invalid
+			? 'The configured API key was rejected. Paste the key from .env below:'
+			: 'Paste your API key below (or open with ?key=YOUR_KEY) to unlock link management:';
+
+		const form = document.createElement('div');
+		form.style.cssText = 'display: flex; gap: 8px; max-width: 440px; margin: 0 auto; flex-wrap: wrap; justify-content: center;';
+		const input = document.createElement('input');
+		input.type = 'password';
+		input.placeholder = 'Paste X-API-Key';
+		input.style.cssText = 'flex: 1 1 240px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-size: 13px;';
 		const btn = document.createElement('button');
 		btn.className = 'btn small';
 		btn.type = 'button';
-		btn.textContent = 'Enter API Key';
-		btn.onclick = () => { if (askForKey()) load(); };
-		box.appendChild(btn);
+		btn.textContent = 'Unlock';
+
+		const unlock = () => {
+			const val = input.value.trim();
+			if (val) {
+				setKey(val);
+				load();
+			}
+		};
+		btn.onclick = unlock;
+		input.onkeydown = (e) => { if (e.key === 'Enter') unlock(); };
+
+		form.append(input, btn);
+		box.append(title, desc, form);
 		$('list').replaceChildren(box);
+		updateKeyBadge();
 	}
 
 	async function load() {
 		try {
-			const hadKey = Boolean(sessionStorage.getItem('apiKey'));
+			updateKeyBadge();
+			const hadKey = Boolean(getKey());
 			const res = await api('/api/links', {}, false);
 			if (res.status === 401) {
-				if (hadKey) sessionStorage.removeItem('apiKey');
+				if (hadKey) setKey('');
 				renderKeyRequired(hadKey);
 				return;
 			}
 			if (!res.ok) return;
 			links = await res.json();
 			render();
+			updateKeyBadge();
 		} catch (e) {
 			// server restarting; the next tick retries
 		}
@@ -272,6 +359,11 @@
 
 	$('another').addEventListener('click', resetComposer);
 	$('search').addEventListener('input', render);
+	if ($('keyBadge')) {
+		$('keyBadge').addEventListener('click', () => {
+			if (askForKey()) load();
+		});
+	}
 
 	load();
 	setInterval(load, 5000);
