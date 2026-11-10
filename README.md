@@ -1,6 +1,6 @@
 # URL Shortener Demo
 
-A proof of concept showing we can replace Bitly with our own shortener, using Spring Boot and MySQL. It's a standalone project and doesn't touch `workroo-api-revamp`.
+A proof of concept showing we can replace Bitly with our own shortener, using Spring Boot and MySQL. It's a standalone project
 
 ## What it does
 
@@ -9,7 +9,7 @@ A proof of concept showing we can replace Bitly with our own shortener, using Sp
 - **Stats:** `GET /api/links/{code}` returns the click count and last click time. `GET /api/links` lists recent links.
 - **Demo page:** http://localhost:8090 lets you shorten links and watch the click counts.
 - **Any link:** anyone can shorten any `http`/`https` link. Links back to the shortener itself are refused, so nobody can create redirect loops.
-- **Optional allow-list:** set `SHORT_LINK_ALLOWED_HOSTS=workroo.click,...` to only allow our own sites, as production should, so nobody can use it for spam or phishing links.
+- **Optional allow-list:** set `SHORT_LINK_ALLOWED_HOSTS=` to only allow our own sites, as production should, so nobody can use it for spam or phishing links.
 
 > **Demo security note:** the management API is intentionally unauthenticated for this proof of concept, and an empty
 > `SHORT_LINK_ALLOWED_HOSTS` value permits any HTTP/HTTPS destination. Do not expose this configuration as a production service.
@@ -55,7 +55,6 @@ cloudflared tunnel route dns url-shortener-demo go.pumudu.indevs.in
 ```bash
 curl -s -X POST localhost:8090/api/links \
   -H 'Content-Type: application/json' \
-  -d '{"longUrl":"https://progress.workroo.click?code=Xy7Pq2Lm9Rt4Vb8Nc3Kd6Fh1Jw5Gs0Az&account=acme"}'
 
 curl -i localhost:8090/<code>            # 302 with Location: the long URL
 curl -s localhost:8090/api/links/<code>  # clickCount: 1
@@ -77,7 +76,7 @@ The tests use an in-memory H2 database, so they don't need the `.env` file.
 | `short_link` table | Goes in the `aws_master` database through a Liquibase changeset |
 | `ShortLinkRepository` (JdbcTemplate) | Points at the master datasource, so links are saved in `aws_master` and not in the tenant schema of the logged-in user |
 | `GET /{code}` | Becomes `GET /s/{code}`, added to `permitAll()` in `WebSecurityConfig` |
-| `short.link.base-url` | `https://go.workroo.click` (a DNS record on the domain we already own) |
+| `short.link.base-url` (a DNS record on the domain we already own) |
 
 ## Design notes
 
@@ -113,6 +112,3 @@ The demo has the redirect and persistence core, but the following work is requir
 - **Visits vs probes:** `HEAD` requests, browser prefetches and known bot user-agents are redirected but not counted. Timestamps are stored in UTC.
 - **Ops:** `/actuator/health` (liveness/readiness) is public. `/actuator/metrics` needs the API key. Metrics: `shortlink.created`, `shortlink.redirects{result}`, `shortlink.click.failures`, `shortlink.errors`.
 - **Existing database:** run `db/migration/V2__link_lifecycle.sql` once before deploying. `CREATE TABLE IF NOT EXISTS` does not alter an existing table.
-
-### Still open (needs your team)
-Liquibase changeset in `aws_master`, MySQL Testcontainers tests (needs Docker in CI), edge rate limiting, paid hosting + managed DB with backups, rotating the DB password, and a CI pipeline with dependency/image scanning.
