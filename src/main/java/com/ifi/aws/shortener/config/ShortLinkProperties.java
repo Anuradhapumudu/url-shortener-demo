@@ -51,6 +51,10 @@ public record ShortLinkProperties(
 			throw new IllegalArgumentException(
 					"short.link.base-url must be an http(s) URL with a host and no credentials, query, or fragment");
 		}
+		if (uri.getPath() != null && !uri.getPath().isEmpty() && !uri.getPath().equals("/")) {
+			throw new IllegalArgumentException(
+					"short.link.base-url must not contain a path component (use root domain or subdomain)");
+		}
 		return candidate;
 	}
 

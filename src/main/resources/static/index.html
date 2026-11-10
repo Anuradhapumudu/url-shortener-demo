@@ -327,7 +327,7 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha512-CNgIRecGo7nphbeZ04Sc13ka07paqdeTu0WR1IM4kNcpmBAUSHSQX0FslNhTDadL4O5SAGapGt4FodqL8My0mA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script>
 	const ICON_COPY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>';
 	const ICON_TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>';
@@ -385,11 +385,8 @@
 	function favicon(host) {
 		const box = document.createElement('div');
 		box.className = 'fav';
-		const img = document.createElement('img');
-		img.alt = '';
-		img.src = 'https://www.google.com/s2/favicons?sz=64&domain=' + encodeURIComponent(host);
-		img.onerror = () => { box.textContent = host.charAt(0).toUpperCase(); };
-		box.appendChild(img);
+		const clean = (host || '').replace(/^www\./, '');
+		box.textContent = (clean ? clean.charAt(0) : 'L').toUpperCase();
 		return box;
 	}
 

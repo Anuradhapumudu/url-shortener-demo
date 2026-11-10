@@ -48,6 +48,16 @@ class ProductionSafetyValidatorTest {
 				.isInstanceOf(IllegalStateException.class).hasMessageContaining("code-length");
 	}
 
+
+	@Test
+	void detectsPublicDomainsAccurately() {
+		org.assertj.core.api.Assertions.assertThat(ProductionSafetyValidator.isPublicDomain("http://localhost:8090")).isFalse();
+		org.assertj.core.api.Assertions.assertThat(ProductionSafetyValidator.isPublicDomain("http://127.0.0.1:8090")).isFalse();
+		org.assertj.core.api.Assertions.assertThat(ProductionSafetyValidator.isPublicDomain("http://myservice.local:8090")).isFalse();
+		org.assertj.core.api.Assertions.assertThat(ProductionSafetyValidator.isPublicDomain("https://go.anuradha.indevs.in")).isTrue();
+		org.assertj.core.api.Assertions.assertThat(ProductionSafetyValidator.isPublicDomain("https://go.workroo.click")).isTrue();
+	}
+
 	@Test
 	void refusesPlainHttpBaseUrl() {
 		assertThatThrownBy(() -> ProductionSafetyValidator.validateForProduction(

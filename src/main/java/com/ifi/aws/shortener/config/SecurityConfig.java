@@ -39,6 +39,9 @@ public class SecurityConfig {
 						.frameOptions(f -> f.deny()));
 		if (!properties.demoUiEnabled()) {
 			http.headers(h -> h.contentSecurityPolicy(c -> c.policyDirectives("default-src 'none'; frame-ancestors 'none'")));
+		} else {
+			http.headers(h -> h.contentSecurityPolicy(c -> c.policyDirectives(
+					"default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self'; frame-ancestors 'none'")));
 		}
 		http
 				.addFilterBefore(new ApiKeyAuthFilter(properties.apiKey()), UsernamePasswordAuthenticationFilter.class)

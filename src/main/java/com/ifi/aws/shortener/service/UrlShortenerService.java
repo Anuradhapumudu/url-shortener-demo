@@ -10,6 +10,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.RandomStringUtils;
@@ -26,6 +28,7 @@ import com.ifi.aws.shortener.repository.ShortLink;
 import com.ifi.aws.shortener.repository.ShortLinkRepository;
 
 import io.micrometer.core.instrument.MeterRegistry;
+import jakarta.annotation.PreDestroy;
 
 @Service
 public class UrlShortenerService {
@@ -34,14 +37,11 @@ public class UrlShortenerService {
 
 	private static final int MAX_ATTEMPTS = 5;
 
-	/** Omits look-alike characters (0/O, 1/l/I) because codes may be read out or typed. */
 	static final char[] CODE_ALPHABET = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789".toCharArray();
 
-	/** Words that must never become a code, since they could collide with top-level routes. */
 	static final Set<String> RESERVED_CODES = Set.of(
 			"admin", "api", "health", "actuator", "index", "static", "login", "logout", "error", "metrics", "swagger");
 
-	/** Preview fetchers, scanners and bots are redirected but not counted as customer clicks. */
 	private static final Pattern BOT_USER_AGENT = Pattern.compile(
 			"(?i)(bot\\b|bot/|crawler|spider|preview|facebookexternalhit|slurp|slackbot|telegram|skypeuripreview"
 					+ "|googleimageproxy|headlesschrome|curl/|wget/|python-requests|java/|go-http-client|monitor|uptime)");
@@ -50,6 +50,7 @@ public class UrlShortenerService {
 	private final ShortLinkProperties properties;
 	private final MeterRegistry meters;
 	private final Cache<String, ShortLink> linkCache;
+	private final ExecutorService clickExecutor;
 
 	public UrlShortenerService(ShortLinkRepository shortLinkRepository, ShortLinkProperties properties,
 			MeterRegistry meters) {
@@ -60,16 +61,26 @@ public class UrlShortenerService {
 				.maximumSize(10_000)
 				.expireAfterWrite(Duration.ofSeconds(Math.max(1, properties.linkCacheTtlSeconds())))
 				.build();
+		this.clickExecutor = Executors.newVirtualThreadPerTaskExecutor();
+	}
+
+	@PreDestroy
+	void shutdown() {
+		clickExecutor.shutdown();
 	}
 
 	public ShortLink shorten(String longUrl) {
-		return shorten(longUrl, null, null, null);
+		return shorten(longUrl, null, null, null, null);
 	}
 
 	public ShortLink shorten(String longUrl, Integer expiresInDays, String tenantId, String source) {
+		return shorten(longUrl, expiresInDays, tenantId, source, null);
+	}
+
+	public ShortLink shorten(String longUrl, Integer expiresInDays, String tenantId, String source, LocalDateTime explicitExpiresAt) {
 		validate(longUrl);
 		LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
-		LocalDateTime expiresAt = expiryFor(expiresInDays, now);
+		LocalDateTime expiresAt = expiryFor(expiresInDays, explicitExpiresAt, now);
 
 		for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
 			String code = RandomStringUtils.secure().next(properties.codeLength(), CODE_ALPHABET);
@@ -89,12 +100,20 @@ public class UrlShortenerService {
 		throw new IllegalStateException("Could not generate a unique short code");
 	}
 
-	private LocalDateTime expiryFor(Integer requestedDays, LocalDateTime now) {
+	private LocalDateTime expiryFor(Integer requestedDays, LocalDateTime explicitExpiresAt, LocalDateTime now) {
+		if (explicitExpiresAt != null) {
+			if (!explicitExpiresAt.isAfter(now)) {
+				throw new InvalidLinkException("expiresAt must be a future date");
+			}
+			if (explicitExpiresAt.isAfter(now.plusDays(3650))) {
+				throw new InvalidLinkException("expiresAt cannot be more than 10 years (3650 days) in the future");
+			}
+			return explicitExpiresAt;
+		}
 		int days = requestedDays != null ? requestedDays : properties.defaultExpiresInDays();
 		return days > 0 ? now.plusDays(days) : null;
 	}
 
-	/** Looks up a code (cached) and counts the click when asked to. Counting never blocks the redirect. */
 	public Resolution resolve(String code, String userAgent, boolean countClick) {
 		ShortLink link = linkCache.getIfPresent(code);
 		if (link == null) {
@@ -110,7 +129,7 @@ public class UrlShortenerService {
 			return Resolution.gone();
 		}
 		if (countClick && !isBot(userAgent)) {
-			recordClickQuietly(code);
+			clickExecutor.submit(() -> recordClickQuietly(code));
 		}
 		meters.counter("shortlink.redirects", "result", "found").increment();
 		return Resolution.found(link.longUrl());
@@ -129,24 +148,50 @@ public class UrlShortenerService {
 		return userAgent != null && BOT_USER_AGENT.matcher(userAgent).find();
 	}
 
-	/** Stats lookup; disabled links are treated as gone. */
 	public Optional<ShortLink> find(String code) {
-		return shortLinkRepository.findByCode(code).filter(l -> !l.isDisabled());
+		return find(code, null);
+	}
+
+	public Optional<ShortLink> find(String code, String tenantId) {
+		LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
+		return shortLinkRepository.findByCode(code, blankToNull(tenantId))
+				.filter(l -> !l.isDisabled() && !l.isExpired(now));
 	}
 
 	public List<ShortLink> recent(int limit) {
-		return shortLinkRepository.findRecent(limit);
+		return recent(null, limit);
 	}
 
-	/** Soft delete. Returns true if an active link was disabled. */
+	public List<ShortLink> recent(String tenantId, int limit) {
+		return shortLinkRepository.findRecent(blankToNull(tenantId), LocalDateTime.now(ZoneOffset.UTC), limit);
+	}
+
 	public boolean delete(String code) {
-		boolean disabled = shortLinkRepository.disable(code, LocalDateTime.now(ZoneOffset.UTC));
+		return delete(code, null);
+	}
+
+	public boolean delete(String code, String tenantId) {
+		boolean disabled = shortLinkRepository.disable(code, blankToNull(tenantId), LocalDateTime.now(ZoneOffset.UTC));
 		linkCache.invalidate(code);
 		return disabled;
 	}
 
+	public ShortLink updateDestination(String code, String newLongUrl, String tenantId) {
+		validate(newLongUrl);
+		boolean updated = shortLinkRepository.updateDestination(code, newLongUrl.trim(), blankToNull(tenantId));
+		if (!updated) {
+			throw new InvalidLinkException("Link not found or access denied");
+		}
+		linkCache.invalidate(code);
+		return shortLinkRepository.findByCode(code).orElseThrow();
+	}
+
 	public long[] totals() {
-		return shortLinkRepository.totals();
+		return totals(null);
+	}
+
+	public long[] totals(String tenantId) {
+		return shortLinkRepository.totals(blankToNull(tenantId), LocalDateTime.now(ZoneOffset.UTC));
 	}
 
 	public String shortUrl(String code) {

@@ -9,6 +9,20 @@ if [ ! -f .env ]; then
 	exit 1
 fi
 
+set -a
+. ./.env
+set +a
+
+if [ -z "${SHORT_LINK_API_KEY:-}" ]; then
+	echo "Error: SHORT_LINK_API_KEY must be set in .env before running public tunnel"
+	exit 1
+fi
+
+if [ -z "${SHORT_LINK_ALLOWED_HOSTS:-}" ]; then
+	echo "Error: SHORT_LINK_ALLOWED_HOSTS must be set in .env before exposing public tunnel"
+	exit 1
+fi
+
 if lsof -iTCP:8090 -sTCP:LISTEN >/dev/null 2>&1; then
 	echo "Port 8090 is already in use - the demo is probably already running."
 	echo "Stop it first: pkill -f url-shortener-demo; pkill -f 'cloudflared tunnel run'"

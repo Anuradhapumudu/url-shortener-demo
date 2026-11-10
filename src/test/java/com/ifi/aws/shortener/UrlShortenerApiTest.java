@@ -33,7 +33,7 @@ class UrlShortenerApiTest {
 	@Test
 	void shortenThenRedirectCountsClicks() throws Exception {
 		String code = shorten(PORTAL_URL);
-		assertThat(code).hasSize(7).matches("[A-Za-z0-9]+");
+		assertThat(code).hasSize(8).matches("[A-Za-z0-9]+");
 
 		mockMvc.perform(get("/" + code))
 				.andExpect(status().isFound())

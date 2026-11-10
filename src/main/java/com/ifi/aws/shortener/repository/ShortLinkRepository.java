@@ -6,10 +6,11 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
-/** Plain JdbcTemplate so the real service can point it at the master datasource regardless of tenant. */
 @Repository
 public class ShortLinkRepository {
 
@@ -18,11 +19,12 @@ public class ShortLinkRepository {
 
 	private final JdbcTemplate jdbcTemplate;
 
-	public ShortLinkRepository(JdbcTemplate jdbcTemplate) {
-		this.jdbcTemplate = jdbcTemplate;
+	public ShortLinkRepository(
+			@Autowired(required = false) @Qualifier("masterJdbcTemplate") JdbcTemplate masterJdbcTemplate,
+			JdbcTemplate defaultJdbcTemplate) {
+		this.jdbcTemplate = masterJdbcTemplate != null ? masterJdbcTemplate : defaultJdbcTemplate;
 	}
 
-	/** Throws DuplicateKeyException if the code already exists. */
 	public void insert(ShortLink link) {
 		jdbcTemplate.update(
 				"INSERT INTO short_link (code, long_url, click_count, created_at, tenant_id, source, expires_at) "
@@ -30,37 +32,76 @@ public class ShortLinkRepository {
 				link.code(), link.longUrl(), link.createdAt(), link.tenantId(), link.source(), link.expiresAt());
 	}
 
-	/** Includes disabled links so callers can tell "gone" from "never existed". */
 	public Optional<ShortLink> findByCode(String code) {
 		return jdbcTemplate.query("SELECT " + COLUMNS + " FROM short_link WHERE code = ?", this::mapRow, code)
 				.stream()
 				.findFirst();
 	}
 
-	/** One atomic UPDATE so concurrent clicks are never lost. */
+	public Optional<ShortLink> findByCode(String code, String tenantId) {
+		if (tenantId != null && !tenantId.isBlank()) {
+			return jdbcTemplate.query(
+					"SELECT " + COLUMNS + " FROM short_link WHERE code = ? AND tenant_id = ?",
+					this::mapRow, code, tenantId)
+					.stream()
+					.findFirst();
+		}
+		return findByCode(code);
+	}
+
 	public void recordClick(String code, LocalDateTime clickedAt) {
 		jdbcTemplate.update(
 				"UPDATE short_link SET click_count = click_count + 1, last_clicked_at = ? WHERE code = ?",
 				clickedAt, code);
 	}
 
-	public List<ShortLink> findRecent(int limit) {
+	public List<ShortLink> findRecent(String tenantId, LocalDateTime now, int limit) {
+		if (tenantId != null && !tenantId.isBlank()) {
+			return jdbcTemplate.query(
+					"SELECT " + COLUMNS + " FROM short_link "
+							+ "WHERE tenant_id = ? AND disabled_at IS NULL AND (expires_at IS NULL OR expires_at > ?) "
+							+ "ORDER BY id DESC LIMIT ?",
+					this::mapRow, tenantId, now, limit);
+		}
 		return jdbcTemplate.query(
-				"SELECT " + COLUMNS + " FROM short_link WHERE disabled_at IS NULL ORDER BY id DESC LIMIT ?",
-				this::mapRow, limit);
+				"SELECT " + COLUMNS + " FROM short_link "
+						+ "WHERE disabled_at IS NULL AND (expires_at IS NULL OR expires_at > ?) "
+						+ "ORDER BY id DESC LIMIT ?",
+				this::mapRow, now, limit);
 	}
 
-	/** Soft delete. Returns true if an active link was disabled. */
-	public boolean disable(String code, LocalDateTime now) {
+	public boolean disable(String code, String tenantId, LocalDateTime now) {
+		if (tenantId != null && !tenantId.isBlank()) {
+			return jdbcTemplate.update(
+					"UPDATE short_link SET disabled_at = ? WHERE code = ? AND tenant_id = ? AND disabled_at IS NULL",
+					now, code, tenantId) > 0;
+		}
 		return jdbcTemplate.update(
 				"UPDATE short_link SET disabled_at = ? WHERE code = ? AND disabled_at IS NULL", now, code) > 0;
 	}
 
-	/** Returns [active links, total clicks on active links]. */
-	public long[] totals() {
+	public boolean updateDestination(String code, String newLongUrl, String tenantId) {
+		if (tenantId != null && !tenantId.isBlank()) {
+			return jdbcTemplate.update(
+					"UPDATE short_link SET long_url = ? WHERE code = ? AND tenant_id = ? AND disabled_at IS NULL",
+					newLongUrl, code, tenantId) > 0;
+		}
+		return jdbcTemplate.update(
+				"UPDATE short_link SET long_url = ? WHERE code = ? AND disabled_at IS NULL",
+				newLongUrl, code) > 0;
+	}
+
+	public long[] totals(String tenantId, LocalDateTime now) {
+		if (tenantId != null && !tenantId.isBlank()) {
+			return jdbcTemplate.queryForObject(
+					"SELECT COUNT(*), COALESCE(SUM(click_count), 0) FROM short_link "
+							+ "WHERE tenant_id = ? AND disabled_at IS NULL AND (expires_at IS NULL OR expires_at > ?)",
+					(rs, rowNum) -> new long[] { rs.getLong(1), rs.getLong(2) }, tenantId, now);
+		}
 		return jdbcTemplate.queryForObject(
-				"SELECT COUNT(*), COALESCE(SUM(click_count), 0) FROM short_link WHERE disabled_at IS NULL",
-				(rs, rowNum) -> new long[] { rs.getLong(1), rs.getLong(2) });
+				"SELECT COUNT(*), COALESCE(SUM(click_count), 0) FROM short_link "
+						+ "WHERE disabled_at IS NULL AND (expires_at IS NULL OR expires_at > ?)",
+				(rs, rowNum) -> new long[] { rs.getLong(1), rs.getLong(2) }, now);
 	}
 
 	private ShortLink mapRow(ResultSet rs, int rowNum) throws SQLException {

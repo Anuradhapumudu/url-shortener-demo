@@ -81,10 +81,10 @@ The tests use an in-memory H2 database, so they don't need the `.env` file.
 
 ## Design notes
 
-- **Codes** are 7 random letters and numbers, giving 62⁷ ≈ 3.5 trillion combinations. A unique key plus a retry handles the very unlikely collision.
+- **Codes** are 8 random characters from a 55-character alphabet (omitting 0/O, 1/l/I look-alikes), giving 55⁸ ≈ 83.7 trillion combinations. A unique key plus a retry handles collisions.
 - **Case-sensitive codes:** the `code` column uses `ascii_bin`, because MySQL's default collation would treat `Ab3xK9q` and `ab3xk9q` as the same code.
 - **Click counting** is a single atomic `UPDATE ... SET click_count = click_count + 1`, so simultaneous clicks are never lost.
-- **No caching:** redirects send `Cache-Control: no-store`, so every tap reaches the server and is counted.
+- **Caching & Decoupling:** redirects send `Cache-Control: no-store` to the browser, while the server caches lookups in memory and processes click recording asynchronously using Java 21 Virtual Threads.
 - **Click count type:** click totals use `BIGINT`, avoiding the 32-bit integer limit for popular links.
 
 ## Production readiness checklist
@@ -109,7 +109,7 @@ The demo has the redirect and persistence core, but the following work is requir
 - **Lifecycle:** links accept `expiresInDays`, `tenantId`, `source`. Expired or deleted links return `410 Gone`. `DELETE` is a soft delete (`disabled_at`).
 - **Resilience:** lookups are cached in memory (`short.link.link-cache-ttl-seconds`, default 30s, so a delete can take that long to reach other instances). A failed click write never blocks the redirect. A DB outage gives 503, not a stack trace. Known bot/preview user-agents are redirected but not counted.
 - **Abuse:** per-client creation limit (`short.link.create-rate-limit-per-minute`, default 30) and a throttle on repeated unknown-code lookups (`short.link.miss-throttle-per-minute`, default 20, returns 429) to slow enumeration. Keep real limits at the edge too.
-- **Guessing:** codes are 8 random characters (about 72 trillion combinations) with no look-alike characters. `short.link.default-expires-in-days` shrinks the pool of live links. Never rely on a short code as the only secret: tokens inside the target URL should expire or be single-use.
+- **Guessing:** codes are 8 random characters (about 83.7 trillion combinations) with no look-alike characters. `short.link.default-expires-in-days` shrinks the pool of live links. Never rely on a short code as the only secret: tokens inside the target URL should expire or be single-use.
 - **Visits vs probes:** `HEAD` requests, browser prefetches and known bot user-agents are redirected but not counted. Timestamps are stored in UTC.
 - **Ops:** `/actuator/health` (liveness/readiness) is public. `/actuator/metrics` needs the API key. Metrics: `shortlink.created`, `shortlink.redirects{result}`, `shortlink.click.failures`, `shortlink.errors`.
 - **Existing database:** run `db/migration/V2__link_lifecycle.sql` once before deploying. `CREATE TABLE IF NOT EXISTS` does not alter an existing table.

@@ -7,3 +7,4 @@ app.log
 .DS_Store
 demo-run.log
 package-lock.json
+API.md
