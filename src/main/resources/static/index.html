@@ -468,9 +468,24 @@
 		lastClicks = Object.fromEntries(links.map((l) => [l.code, l.clickCount]));
 	}
 
+	// Adds the API key (asked once per browser session) when the server requires one
+	async function api(url, options = {}) {
+		const send = () => fetch(url, { ...options, headers: { ...(options.headers || {}), 'X-API-Key': sessionStorage.getItem('apiKey') || '' } });
+		let res = await send();
+		if (res.status === 401) {
+			const key = prompt('This server requires an API key:');
+			if (key) {
+				sessionStorage.setItem('apiKey', key);
+				res = await send();
+			}
+		}
+		return res;
+	}
+
 	async function load() {
 		try {
-			const res = await fetch('/api/links');
+			const res = await api('/api/links');
+			if (!res.ok) return;
 			links = await res.json();
 			render();
 		} catch (e) {
@@ -487,7 +502,7 @@
 			return;
 		}
 		pendingDelete = null;
-		const res = await fetch('/api/links/' + encodeURIComponent(code), { method: 'DELETE' });
+		const res = await api('/api/links/' + encodeURIComponent(code), { method: 'DELETE' });
 		if (res.ok) toast('Link deleted');
 		if ($('shortLink').dataset.code === code) resetComposer();
 		load();
@@ -530,7 +545,7 @@
 		button.disabled = true;
 		button.textContent = 'Shortening…';
 		try {
-			const res = await fetch('/api/links', {
+			const res = await api('/api/links', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ longUrl })

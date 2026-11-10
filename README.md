@@ -11,6 +11,9 @@ A proof of concept showing we can replace Bitly with our own shortener, using Sp
 - **Any link:** anyone can shorten any `http`/`https` link. Links back to the shortener itself are refused, so nobody can create redirect loops.
 - **Optional allow-list:** set `SHORT_LINK_ALLOWED_HOSTS=workroo.click,...` to only allow our own sites, as production should, so nobody can use it for spam or phishing links.
 
+> **Demo security note:** the management API is intentionally unauthenticated for this proof of concept, and an empty
+> `SHORT_LINK_ALLOWED_HOSTS` value permits any HTTP/HTTPS destination. Do not expose this configuration as a production service.
+
 ## Run it
 
 1. Create a free MySQL database (e.g. an Aiven free MySQL plan).
@@ -25,6 +28,8 @@ A proof of concept showing we can replace Bitly with our own shortener, using Sp
    mvn spring-boot:run
    ```
    The `short_link` table is created automatically on first start.
+   For production, set `SHORT_LINK_ALLOWED_HOSTS` explicitly. Values are hostnames only; schemes, paths, ports, and
+   credentials are rejected.
 4. Open http://localhost:8090.
 
 ## Run it on the public domain
@@ -80,3 +85,34 @@ The tests use an in-memory H2 database, so they don't need the `.env` file.
 - **Case-sensitive codes:** the `code` column uses `ascii_bin`, because MySQL's default collation would treat `Ab3xK9q` and `ab3xk9q` as the same code.
 - **Click counting** is a single atomic `UPDATE ... SET click_count = click_count + 1`, so simultaneous clicks are never lost.
 - **No caching:** redirects send `Cache-Control: no-store`, so every tap reaches the server and is counted.
+- **Click count type:** click totals use `BIGINT`, avoiding the 32-bit integer limit for popular links.
+
+## Production readiness checklist
+
+The demo has the redirect and persistence core, but the following work is required before production use:
+
+- Protect all `/api/links` endpoints with authentication and tenant/owner authorization.
+- Add rate limits and abuse controls for link creation, redirects, and administrative reads/deletes.
+- Configure a non-empty allow-list and establish link takedown/reporting procedures.
+- Decide whether links need an `expires_at` value tied to the job or quote lifecycle.
+- Decide whether request counts are sufficient. Current counts include bots, link scanners, previews, and repeated requests;
+  event-level analytics require a separate click-events design with an explicit privacy and retention policy.
+- Add metrics and alerting for database failures, creation failures, redirect failures, 404s, and abuse.
+- Run deployment tests behind the production proxy/tunnel, including HTTPS, forwarded headers, and database outages.
+- Replace startup schema initialization with the production migration system (for example, Liquibase), and test MySQL
+  collation behavior separately from H2.
+
+## Production hardening (added after the production review)
+
+- **Auth:** with `SHORT_LINK_API_KEY` set, `/api/**` requires an `X-API-Key` header. Only `GET /{code}` and `/actuator/health/**` are public.
+- **`prod` profile** (`SPRING_PROFILES_ACTIVE=prod`, the Docker default) refuses to start if the allow-list is empty, the API key is under 32 characters, the code length is under 8, or the base URL is not https. It also turns the demo page off.
+- **Lifecycle:** links accept `expiresInDays`, `tenantId`, `source`. Expired or deleted links return `410 Gone`. `DELETE` is a soft delete (`disabled_at`).
+- **Resilience:** lookups are cached in memory (`short.link.link-cache-ttl-seconds`, default 30s, so a delete can take that long to reach other instances). A failed click write never blocks the redirect. A DB outage gives 503, not a stack trace. Known bot/preview user-agents are redirected but not counted.
+- **Abuse:** per-client creation limit (`short.link.create-rate-limit-per-minute`, default 30) and a throttle on repeated unknown-code lookups (`short.link.miss-throttle-per-minute`, default 20, returns 429) to slow enumeration. Keep real limits at the edge too.
+- **Guessing:** codes are 8 random characters (about 72 trillion combinations) with no look-alike characters. `short.link.default-expires-in-days` shrinks the pool of live links. Never rely on a short code as the only secret: tokens inside the target URL should expire or be single-use.
+- **Visits vs probes:** `HEAD` requests, browser prefetches and known bot user-agents are redirected but not counted. Timestamps are stored in UTC.
+- **Ops:** `/actuator/health` (liveness/readiness) is public. `/actuator/metrics` needs the API key. Metrics: `shortlink.created`, `shortlink.redirects{result}`, `shortlink.click.failures`, `shortlink.errors`.
+- **Existing database:** run `db/migration/V2__link_lifecycle.sql` once before deploying. `CREATE TABLE IF NOT EXISTS` does not alter an existing table.
+
+### Still open (needs your team)
+Liquibase changeset in `aws_master`, MySQL Testcontainers tests (needs Docker in CI), edge rate limiting, paid hosting + managed DB with backups, rotating the DB password, and a CI pipeline with dependency/image scanning.

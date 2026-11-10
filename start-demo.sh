@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Starts the shortener and makes it public at https://go.pumudu.indevs.in (via Cloudflare Tunnel).
+# Starts the shortener and makes it public at https://go.anuradha.indevs.in (via Cloudflare Tunnel).
 # Ctrl+C stops both.
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -23,7 +23,7 @@ APP_PID=$!
 trap 'kill $APP_PID 2>/dev/null' EXIT
 
 echo "Starting app (log: app.log)..."
-until curl -s -o /dev/null http://localhost:8090/api/links/summary; do
+until curl -s -o /dev/null http://localhost:8090/actuator/health; do
 	if ! kill -0 $APP_PID 2>/dev/null; then
 		echo "App failed to start. Last lines of app.log:"
 		tail -20 app.log
@@ -34,6 +34,6 @@ done
 
 echo ""
 echo "  Local:  http://localhost:8090"
-echo "  Public: https://go.pumudu.indevs.in"
+echo "  Public: https://go.anuradha.indevs.in"
 echo ""
 cloudflared tunnel run --url http://localhost:8090 url-shortener-demo

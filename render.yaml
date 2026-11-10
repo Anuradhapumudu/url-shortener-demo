@@ -2,8 +2,9 @@ services:
   - type: web
     name: url-shortener-demo
     runtime: docker
-    plan: free
-    healthCheckPath: /api/links/summary
+    # "free" instances sleep, which breaks every SMS link sent. Use a paid always-on plan.
+    plan: starter
+    healthCheckPath: /actuator/health/readiness
     envVars:
       # Set these in the Render dashboard (they are never stored in the repo)
       - key: DB_URL
@@ -14,3 +15,9 @@ services:
         sync: false
       - key: SHORT_LINK_BASEURL
         sync: false
+      - key: SHORT_LINK_ALLOWED_HOSTS
+        sync: false
+      - key: SHORT_LINK_API_KEY
+        generateValue: true
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
